@@ -30,7 +30,7 @@ https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Datas
     - **step4** will clean up the column labels of the global variable "data".  Since we read in "features.txt" in step1, this provides us with a good basis of descriptive variable names.
  0. Creates a second, independent tidy data set with the average of each variable for each activity and each subject. 
     - **step5** will aggregate the data with the global variable "data" by "subject" and "activity" and return the mean of the remaining variables.  It will also clean up dataset, and save the tidy data as comma seperated values to disk in the directory specified by the global variable "dataDir".
-    - see **CodeBook.md**, or **tinydata.txt** for details on the format of this file.
+    - see **CodeBook.md** for details on the format of this tidy data output file.
 
 Version
 --
