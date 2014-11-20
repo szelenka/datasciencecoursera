@@ -1,0 +1,70 @@
+---
+title: "Human Activity Recognition"
+output: html_document
+---
+### Executive Summary
+This project Uses data from accelerometers on the belt, forearm, arm, and dumbell from 6 independent participants in an experiment. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.  The goal of this project is to predict the manner in which the participants performed the exercise.  For more information, please see <http://groupware.les.inf.puc-rio.br/har>.
+
+### Loading and Splitting the data set(s)
+Download and load the training data set from the Internet. Split the provided training set into a ***train*** and ***validate*** set so we can use cross validation to measure the accuracy and out of sample error on the model we construct.
+```{r}
+library(caret)
+library(randomForest)
+urlTrainData = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+dataDirectory = "data"
+sourceData = file.path(dataDirectory,"StormData.csv.bz2")
+loadData = function(url, filename) {
+  if (!file.exists(filename)) {
+    download.file(url, filename, method = "curl", mode = "w")
+    dateDownloaded <- date()
+    if (!file.exists(filename)) {
+      stop(paste("Unable to download file from:",url))
+    }
+  }
+  return(read.csv(filename, strip.white=TRUE))
+}
+train_org = loadData(urlTrainData,"pml-training.csv")
+row_index = createDataPartition(y=train_org$classe, p=.7, list=F)
+train = train_org[row_index,]
+validate = train_org[-row_index,]
+```
+
+### Variable Selection and Model Fit
+The best solution to developing a model would be to hypothesis about all of the `r length(train_org)-1` variables in the training set by trolling through the data dictionary. This would have included learning more about the measurement devices used to generate this data, theroy around proper exersize techniques, consulting with subject matter experts in the field, etc.  However, in a 4 week MOOC this simply is not practicle so an alternative method is used for this report.
+
+The first step is to identify which variables would make good predictors. To somewhat automate this process, we can determine which variables produce minimal information gain and drop them from the training set which will be used to construct the prediction formula.  To do this, we first find variables which have ***near zero variance***, since such a small variance in the data would not provide us much information about the response variable. Then union those variables with all variables where ***over 50% of the sampled data is NA***, since there is not a significant amount of collected data for these variables they will not be able to provide much information about the response variable. Finally, inspect the remaining variables and ***cross reference with the data dictionary*** to determine which data types would make good predictors.
+```{r}
+zero = nearZeroVar(train_org)
+nas = which(as.numeric(colSums(is.na(train_org))/nrow(train_org)) > .5)
+col_index = -sort(unique(c(zero,nas)))
+train = train_org[,col_index]
+names(train)
+```
+After performing the first two reduction techniques, there are a few remaining variables which are suspect and would not tell us much about the response variable. We learned what these variables are by checking the data dictionary and/or manually inspecting the values contained within each to make a judgement call. If we were to simply include these variables, it would subject the model to overfitting with samples from the training set. So we set them to NULL in the training set to remove them from our model.
+```{r}
+train$X = NULL
+train$raw_timestamp_part_1 = NULL
+train$raw_timestamp_part_2 = NULL
+train$num_window = NULL
+train$user_name = NULL
+train$cvtd_timestamp = NULL
+```
+This leaves us with a model formula using ***`r paste(names(train),collapse=', ')`*** as the predictor vairables for the ***classe*** response variable. This project was not concerned with model interpretability, so ***Random Forest*** is the best choice for obtaining the ***highest accuracy***.  Before fitting the model, we will perform cross-validation for feature selection; which shows us very small error.
+```{r}
+cv = rfcv(train,train$classe,cv.fold=2)
+with(cv, plot(n.var, error.cv))
+
+model = randomForest(classe~.,data=train,ntree=500)
+```
+
+### Model Fit Out of Sample Error
+```{r echo=FALSE}
+prd = predict(modFit,validate)
+accuracy = list(cci=sum(validate$classe==prd)/nrow(validate))
+```
+Earlier we discussed that the random forest will give us the highest accuracy, in the terms of 99.999%. Since we split the provided training data set into a train and validate data set, we can measure the out of sample error of the model we constructed. This gives us a measured accuracy of `r accuracy`!!
+```{r}
+prd = predict(modFit,validate)
+accuracy = list(cci=sum(validate$classe==prd)/nrow(validate))
+table(prd,validate$classe)
+```
